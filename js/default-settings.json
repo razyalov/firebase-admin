@@ -1,5 +1,6 @@
 {
   "theme": "light",
   "fonts": "system",
-  "jsonTheme": "default"
+  "jsonTheme": "default",
+  "queryMethod": "on"
 }

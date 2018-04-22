@@ -1,7 +1,7 @@
 <section ng-hide="rootError" class="container content">
 	<form id="query-box" class="query-box" resizable r-directions="['bottom']">
 		<ui-codemirror id="query" ui-codemirror-opts="codeQueryOptions" ng-model="query"></ui-codemirror>
-		<button type="submit" class="button" ng-click="run()">Run</button>
+		<div class="loader" ng-show="queryRunning"></div><button type="submit" class="button" ng-click="run()" ng-disable="queryRunning">Run<span ng-show="queryRunning">ing...</span></button>
 	</form>
 	<div class="result-wrap">
 		<div class="result-mode">
@@ -23,7 +23,12 @@
 			</div>
 		</div>
 		<div class="result-view raw" ng-show="view.raw">
-			<div class="result" ng-repeat="result in results">{{result}}</div>
+			<div class="result-wrap">
+				<div class="result-mode" ng-show="results.length > 1">
+					<div class="icon" ng-repeat="result in results track by $index" ng-click="selectResult($index)" ng-class="{'active': selectedResult == $index}">{{$index+1}}</div>
+				</div>
+				<div class="result" ng-repeat="result in results track by $index" ng-show="selectedResult == $index">{{result}}</div>
+			</div>
 		</div>
 		<div class="copy-wrap" ng-click="copy()">
 			<img class="copy" src="img/copy.svg">

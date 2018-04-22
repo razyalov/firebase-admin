@@ -18,6 +18,18 @@
 	</div>
 	<div class="admin-content">
 		<form class="form" ng-submit="save()" name="settings">
+			<section class="general" ng-show="view.general">
+				<div class="panel">
+					<div class="panel-heading">Query Method</div>
+					<div>Choose what method to use when retrieving data from a database reference object. Using <code>once</code> will retrieve the value once, while using <code>on</code> will continue to monitor changes to this reference and will reload the results if the real-time database detects a change.</div>
+					<div class="radio">
+						<div class="radio" ng-repeat="qType in ['on', 'once']" >
+							<input type="radio" name="queryMethod" ng-attr-id="queryMethod-{{qType}}" ng-model="form.queryMethod" ng-value="qType">
+							<label ng-attr-for="queryMethod-{{qType}}">{{qType}}</label>
+						</div>
+					</div>
+				</div>
+			</section>
 			<section class="theme" ng-show="view.theme">
 				<div class="panel">
 					<div class="panel-heading">Main Theme</div>

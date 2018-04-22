@@ -3,17 +3,23 @@ var fbaP = angular.module('fba-p', []).run(function () {
 
 .controller('settingsController', function ($scope, $timeout) {
   $scope.view = {}
-  $scope.view.theme = true
-  $scope.activeUrl = 'theme'
   $scope.saved = false
   $scope.jsonThemes = []
   $scope.items = [{
+      name: 'General',
+      url: 'general'
+  },
+  {
     name: 'Theme',
     url: 'theme'
   },{
     name: 'Fonts',
     url: 'fonts'
   }]
+
+  let defaultView = $scope.items[0]
+  $scope.view[defaultView.url] = true
+  $scope.activeUrl = defaultView.url
 
   const userPath = electron.app.getPath('userData')
   const fs = require('graceful-fs')

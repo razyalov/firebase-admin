@@ -74,6 +74,7 @@ var fba = angular.module('fba', ['ngRoute', 'angularResizable', 'ui.codemirror']
   $scope.codeResult = 'No Data'
   $scope.query = ''
   $scope.mode = 'explorer'
+  $scope.selectedResult = 0 // in case of multiple results, which one to show first
 
   if (process.env.mode && process.env.mode === 'dev') {
     console.oldLog = console.log
@@ -311,58 +312,76 @@ var fba = angular.module('fba', ['ngRoute', 'angularResizable', 'ui.codemirror']
 
   $scope.run = function () {
     let query = $scope.queryView.getValue()
-    $scope.results = []
-    if($scope.mode === 'explorer') {
-      $scope.collection = {}
-      try {
-        if(!query.endsWith('/')) {
-          query = query + '/'
-        }
-        query = query.substring($scope.baseURL.length, query.length - 1)
-        $scope.currentApp.database().ref(query).on('value', function (snapshot) {
-          $scope.result = snapshot.val()
-          $scope.results.push(snapshot.val())
-          if(!snapshot.key) {
-            $scope.collection.name = $scope.currentApp.name
-            $scope.collection.url = ''
-          } else {
-            $scope.collection.name = snapshot.key
-            $scope.collection.url = query
+    $scope.results = ["fetching..."]
+    $scope.selectedResult = 0
+    $scope.queryRunning = true
+      // invoke the actual acction async so the UI can refresh for the waiting animation.
+      $timeout(() => {
+          if($scope.mode === 'explorer') {
+              $scope.collection = {}
+              try {
+                  if(!query.endsWith('/')) {
+                      query = query + '/'
+                  }
+                  query = query.substring($scope.baseURL.length, query.length - 1)
+                  let queryMethod = $rootScope.settings.queryMethod || 'on'
+                  $scope.currentApp.database().ref(query)[queryMethod]('value', function (snapshot) {
+                      $scope.result = snapshot.val()
+                      $scope.results[$scope.result]
+                      if(!snapshot.key) {
+                          $scope.collection.name = $scope.currentApp.name
+                          $scope.collection.url = ''
+                      } else {
+                          $scope.collection.name = snapshot.key
+                          $scope.collection.url = query
+                      }
+                      if (typeof $scope.result === 'object') {
+                          $scope.collection.collections = $scope.updateResult($scope.result, $scope.collection.url)
+                      } else {
+                          $scope.collection.value = $scope.result
+                          $scope.collection.leaf = true
+                      }
+                      $scope.collection.open = true
+                      $scope.codeResult = JSON.stringify($scope.result, null, 2)
+                      $scope.activeUrl = $scope.collection.url
+                      $scope.queryRunning = false
+                  }, function (err) {
+                      $scope.result = 'The read failed: ' + err.code
+                      $scope.results = [$scope.result]
+                      $scope.queryRunning = false
+                  })
+              } catch (err) {
+                  $scope.result = 'Ooops.. There is an error":\n"' + err.message
+                  $scope.results = [$scope.result]
+                  $scope.queryRunning = false
+              }
+          } else if($scope.mode === 'query') {
+              let regex = 'firebase().'
+              query = query.replace(regex, '$scope.currentApp.')
+              try {
+                  eval(query)
+                  $scope.results = []
+                  if (typeof $scope.$log !== 'undefined' && $scope.$log != null && $scope.$log.length > 0) {
+                      $scope.$log.forEach((res) => {
+                          $scope.results.push(res)
+                      })
+                  } else {
+                      // no results found
+                      $scope.results.push("No results matched your query.")
+                  }
+                  $scope.$log = null
+                  $scope.queryRunning = false
+              } catch (err) {
+                  $scope.result = errorMessage = 'Ooops.. There is an error":\n"' + err.message
+                  $scope.results = [$scope.result]
+                  $scope.queryRunning = false
+              }
           }
-          if (typeof $scope.result === 'object') {
-            $scope.collection.collections = $scope.updateResult($scope.result, $scope.collection.url)
-          } else {
-            $scope.collection.value = $scope.result
-            $scope.collection.leaf = true
-          }
-          $scope.collection.open = true
-          $scope.codeResult = JSON.stringify($scope.result, null, 2)
-          $scope.activeUrl = $scope.collection.url
-        }, function (err) {
-          $scope.result = 'The read failed: ' + err.code
-        })
-      } catch (err) {
-        $scope.result = 'Ooops.. There is an error":\n"' + err.message
-      }
-    } else if($scope.mode === 'query') {
-      let regex = 'firebase().'
-      query = query.replace(regex, '$scope.currentApp.')
-       try {
-        eval(query)
-        if (typeof $scope.$log !== 'undefined' && $scope.$log.length > 0) {
-          $scope.$log.forEach((res) => {
-            $scope.results.push(res)
-          })
-        }
-        $scope.$log = null
-      } catch (err) {
-        $scope.result = 'Ooops.. There is an error":\n"' + err.message
-      }
-    }
+      })
   }
 
   $scope.copy = () => {
-    let copyText = JSON.stringify($scope.result, null, '\t')
+    let copyText = JSON.stringify($scope.results, null, '\t')
     clipboard.writeText(copyText)
     $scope.copiedNow = true
     $timeout(() => {
@@ -412,7 +431,8 @@ var fba = angular.module('fba', ['ngRoute', 'angularResizable', 'ui.codemirror']
       } else {
         $scope.query = ''
       }
-      $scope.queryView.setValue(`firebase().database().ref('/${$scope.query}').on('value', function (snapshot) {\n\tconsole.log(snapshot.val())\n})`)
+      let queryMethod = $rootScope.settings.queryMethod || 'on'
+      $scope.queryView.setValue(`firebase().database().ref('/${$scope.query}').${queryMethod}('value', function (snapshot) {\n\tsnapshot.forEach((it)=>{console.log({[it.key]:it.val()})})\n})`)
       $scope.changeQueryBoxHeight(90)
     }
     $scope.refreshQueryView()
@@ -438,6 +458,10 @@ var fba = angular.module('fba', ['ngRoute', 'angularResizable', 'ui.codemirror']
 
   $scope.updateChild = (collection) => {
     $scope.dbRef.child(collection.url).set(collection.value)
+  }
+
+  $scope.selectResult = (resultId) => {
+    $scope.selectedResult = resultId
   }
 })
 
