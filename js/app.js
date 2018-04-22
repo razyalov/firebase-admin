@@ -182,6 +182,7 @@ var fba = angular.module('fba', ['ngRoute', 'angularResizable', 'ui.codemirror']
       $scope.currentApp = $scope.apps[id]
       $scope.update()
       dataBin.setData('openCon', openCon)
+      ipc.send('set-title', $scope.currentApp.name)
     } catch (err) {
       $scope.menuOverlay = false
       $scope.menuHidden = true
